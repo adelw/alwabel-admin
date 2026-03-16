@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store'
 import { sb, phoneVariants } from '../lib/supabase'
@@ -13,6 +13,14 @@ export default function Members() {
   const [toggling, setToggling] = useState({})
   const [verifyF,  setVerifyF]  = useState(null)
   const [limit,    setLimit]    = useState(200)
+
+  // Load tags for display
+  const [treeTags, setTreeTags]     = useState([])
+  const [memberTags, setMemberTags] = useState([])
+  useEffect(() => {
+    sb.from('tree_tags').select('*').then(({ data }) => setTreeTags(data || []))
+    sb.from('member_tags').select('*').then(({ data }) => setMemberTags(data || []))
+  }, [])
 
   const filtered = useMemo(() => {
     let l = members
@@ -224,6 +232,20 @@ export default function Members() {
                       مكرر
                     </small>
                   )}
+                  {/* Tags */}
+                  {memberTags.filter(mt => mt.member_id === m.id).map(mt => {
+                    const tag = treeTags.find(t => t.id === mt.tag_id)
+                    if (!tag) return null
+                    return (
+                      <small key={mt.id} style={{
+                        fontSize: 9, fontWeight: 700, padding: '1px 7px', borderRadius: 10,
+                        marginRight: 4, whiteSpace: 'nowrap',
+                        background: (tag.color || '#2563eb') + '18',
+                        color: tag.color || '#2563eb',
+                        border: `1px solid ${(tag.color || '#2563eb')}40`,
+                      }}>🏷️ {tag.name}</small>
+                    )
+                  })}
                 </div>
                 <div className="m-meta">
                   {m.phone && (

@@ -10,6 +10,7 @@ import Members from './pages/Members'
 import MemberProfile from './pages/MemberProfile'
 import { RequestsPage, MarriagesPage } from './pages/Other'
 import WpSearch from './pages/WpSearch'
+import Privacy from './pages/Privacy'
 
 function Shell({ children }) {
   const { loadAll, showLoad, hideLoad, toast } = useStore()
@@ -22,7 +23,7 @@ function Shell({ children }) {
     finally { hideLoad() }
   }
 
-  const titles = { '/dashboard':'نظرة عامة', '/members':'الأعضاء', '/requests':'طلبات التسجيل', '/marriages':'الزيجات', '/wp-search':'بحث WP' }
+  const titles = { '/dashboard':'نظرة عامة', '/members':'الأعضاء', '/requests':'طلبات التسجيل', '/marriages':'الزيجات', '/wp-search':'بحث WP', '/privacy':'الخصوصية' }
   const loc = useLocation()
   const title = loc.pathname.startsWith('/members/') && loc.pathname !== '/members/new'
     ? 'ملف العضو'
@@ -101,6 +102,7 @@ export default function App() {
                 <Route path="/requests"     element={<RequestsPage />} />
                 <Route path="/marriages"    element={<MarriagesPage />} />
                 <Route path="/wp-search"    element={<WpSearch />} />
+                <Route path="/privacy"      element={<Privacy />} />
                 <Route path="*"             element={<Navigate to="/dashboard" replace />} />
               </Routes>
             </Shell>

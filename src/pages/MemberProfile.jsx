@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useStore } from '../store'
 import { sb, now } from '../lib/supabase'
+import { autoAssignTags, autoAssignTagsForMarriage } from '../lib/autoTags'
 import { AutoComplete, Avatar, StatusBadge, RoleBadge, Modal, sLabel, rLabel } from '../components/UI'
 
 const BRANCHES = ['علي','صالح','إبراهيم']
@@ -256,7 +257,7 @@ function EditModal({ member, onClose, onSave }) {
 
 /* ── New Member Form ── */
 function NewMemberForm() {
-  const { members, addMember, toast, showLoad, hideLoad } = useStore()
+  const { members, marriages, addMember, toast, showLoad, hideLoad } = useStore()
   const navigate = useNavigate()
   const [f, setF] = useState({ first_name:'', full_name:'', gender:'', branch:'', status:'approved', role:'user', is_deceased:false, phone:'', email:'', city:'', job:'', birth_date:'', birth_order:'', notes:'', father_id:null, father_name:'', mother_id:null, mother_name:'', is_family_member:true, family_name:'' })
   const extractFamilyName = (fullName) => { if (!fullName) return ''; const parts = fullName.trim().split(/\s+/); return parts.length > 1 ? parts[parts.length - 1] : '' }
@@ -273,6 +274,8 @@ function NewMemberForm() {
     hideLoad()
     if (error) return toast('خطأ: '+error.message,'er')
     addMember(data)
+    // Auto-assign tags based on lineage
+    autoAssignTags(id, [...members, data], marriages).catch(() => {})
     toast('✅ تمت الإضافة','ok')
     setTimeout(() => navigate('/members/'+id), 400)
   }
@@ -512,6 +515,15 @@ export default function MemberProfile() {
   const [marDlg,    setMarDlg]   = useState(null)
   const [childDlg,  setChildDlg] = useState(null)
   const [quickEdit, setQuickEdit] = useState(null)
+
+  // Load tags for display
+  const [treeTags, setTreeTags]     = useState([])
+  const [memberTags, setMemberTags] = useState([])
+  useEffect(() => {
+    sb.from('tree_tags').select('*').then(({ data }) => setTreeTags(data || []))
+    sb.from('member_tags').select('*').then(({ data }) => setMemberTags(data || []))
+  }, [])
+
   const myMarriages     = useMemo(()=>marriages.filter(m=>m.husband_id===id||m.wife_id===id),[marriages,id])
   const sortedMarriages = useMemo(()=>[...myMarriages].sort((a,b)=>(a.wife_order||1)-(b.wife_order||1)),[myMarriages])
   const children        = useMemo(()=>members.filter(m=>m.father_id===id||m.mother_id===id).sort((a,b)=>(a.birth_order||99)-(b.birth_order||99)),[members,id])
@@ -583,6 +595,8 @@ export default function MemberProfile() {
     hideLoad()
     if (error) return toast('خطأ: '+error.message,'er')
     updateMember(id,data); toast('✅ تم الحفظ','ok'); setEdit(false)
+    // Auto-assign tags if father/mother changed
+    autoAssignTags(id, members, marriages).catch(() => {})
   }
 
   function del() {
@@ -627,6 +641,8 @@ export default function MemberProfile() {
     hideLoad()
     if (error) return toast('خطأ: '+error.message,'er')
     addMarriage(newMar); setMarDlg(null); toast('✅ تمت إضافة الزيجة','ok')
+    // Auto-assign tags for both spouses
+    autoAssignTagsForMarriage(newMar.husband_id, newMar.wife_id, members, [...marriages, newMar]).catch(() => {})
   }
 
   async function toggleDivorce(marId, cur) {
@@ -676,6 +692,8 @@ export default function MemberProfile() {
     hideLoad()
     if (error) return toast('خطأ: '+error.message,'er')
     addMember(data); setChildDlg(null); setChildForm({ fn:'', gender:'', full:'', motherId:null, motherName:'', order:'' }); toast('✅ تمت الإضافة','ok')
+    // Auto-assign tags for the new child
+    autoAssignTags(cid, [...members, data], marriages).catch(() => {})
   }
 
   const filteredChildren = childQ ? children.filter(c=>(c.full_name||c.first_name||'').includes(childQ)) : children
@@ -709,6 +727,19 @@ export default function MemberProfile() {
                       🌿 وابلي
                     </span>
                 }
+                {/* Tags */}
+                {memberTags.filter(mt => mt.member_id === id).map(mt => {
+                  const tag = treeTags.find(t => t.id === mt.tag_id)
+                  if (!tag) return null
+                  return (
+                    <span key={mt.id} style={{
+                      fontSize: 11, fontWeight: 700, padding: '2px 10px', borderRadius: 20,
+                      background: (tag.color || '#2563eb') + '18',
+                      color: tag.color || '#2563eb',
+                      border: `1px solid ${(tag.color || '#2563eb')}40`,
+                    }}>🏷️ {tag.name}</span>
+                  )
+                })}
               </div>
               <div className="profile-btns">
                 <VerifyBtn memberId={id} />
