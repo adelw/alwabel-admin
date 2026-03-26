@@ -1,9 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 
-// ── عدّل هذين السطرين فقط ─────────────────────
 const SB_URL = 'https://hwdqdtatppdgbymovwpk.supabase.co'
 const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh3ZHFkdGF0cHBkZ2J5bW92d3BrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE3NTMwNjYsImV4cCI6MjA4NzMyOTA2Nn0.PVu_km1Ue1Gcbl8Po2SwLNvPgOcayytIbAgVfiVbOtk'
-// ─────────────────────────────────────────────────
 
 export const sb = createClient(SB_URL, SB_KEY)
 
@@ -16,7 +14,8 @@ export function fmtPhone(p = '') {
   return '+' + p.replace(/^\+/, '')
 }
 
-export const phoneToEmail = p => fmtPhone(p).replace('+', '') + '@family.app'
+// ✅ تم التغيير من @family.app إلى @alwabil.info
+export const phoneToEmail = p => fmtPhone(p).replace('+', '') + '@alwabil.info'
 
 export function phoneVariants(raw = '') {
   try {
@@ -31,7 +30,7 @@ export async function loadAllMembers() {
   while (true) {
     const { data, error } = await sb
       .from('members')
-      .select('id,wp_id,first_name,full_name,gender,phone,email,city,job,branch,status,role,is_deceased,birth_date,birth_order,father_id,mother_id,photo_url,notes,created_at,auth_id,is_verified,is_family_member,family_name')
+      .select('id,wp_id,ref_id,first_name,full_name,gender,phone,email,city,job,branch,status,role,is_deceased,birth_date,birth_order,father_id,mother_id,photo_url,notes,created_at,auth_id,is_verified,is_family_member,family_name')
       .order('full_name')
       .range(off, off + 999)
     if (error) throw error

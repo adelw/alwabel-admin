@@ -68,6 +68,17 @@ const NAV = [
       </svg>
     ),
   },
+  {
+    to: '/bot-knowledge',
+    label: 'ذاكرة البوت',
+    icon: (
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 2a4 4 0 0 1 4 4c0 1.95-1.4 3.57-3.25 3.92L12 22"/>
+        <path d="M12 2a4 4 0 0 0-4 4c0 1.95 1.4 3.57 3.25 3.92"/>
+        <path d="M8 10h8"/><path d="M9 14h6"/><path d="M10 18h4"/>
+      </svg>
+    ),
+  },
 ]
 
 export default function Sidebar() {

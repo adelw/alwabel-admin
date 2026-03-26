@@ -11,6 +11,7 @@ import MemberProfile from './pages/MemberProfile'
 import { RequestsPage, MarriagesPage } from './pages/Other'
 import WpSearch from './pages/WpSearch'
 import Privacy from './pages/Privacy'
+import BotKnowledge from './pages/BotKnowledge'
 
 function Shell({ children }) {
   const { loadAll, showLoad, hideLoad, toast } = useStore()
@@ -23,7 +24,7 @@ function Shell({ children }) {
     finally { hideLoad() }
   }
 
-  const titles = { '/dashboard':'نظرة عامة', '/members':'الأعضاء', '/requests':'طلبات التسجيل', '/marriages':'الزيجات', '/wp-search':'بحث WP', '/privacy':'الخصوصية' }
+  const titles = { '/dashboard':'نظرة عامة', '/members':'الأعضاء', '/requests':'طلبات التسجيل', '/marriages':'الزيجات', '/wp-search':'بحث WP', '/privacy':'الخصوصية', '/bot-knowledge':'ذاكرة البوت' }
   const loc = useLocation()
   const title = loc.pathname.startsWith('/members/') && loc.pathname !== '/members/new'
     ? 'ملف العضو'
@@ -96,14 +97,15 @@ export default function App() {
           <Guard>
             <Shell>
               <Routes>
-                <Route path="/dashboard"    element={<Dashboard />} />
-                <Route path="/members"      element={<Members />} />
-                <Route path="/members/:id"  element={<MemberProfile />} />
-                <Route path="/requests"     element={<RequestsPage />} />
-                <Route path="/marriages"    element={<MarriagesPage />} />
-                <Route path="/wp-search"    element={<WpSearch />} />
-                <Route path="/privacy"      element={<Privacy />} />
-                <Route path="*"             element={<Navigate to="/dashboard" replace />} />
+                <Route path="/dashboard"      element={<Dashboard />} />
+                <Route path="/members"        element={<Members />} />
+                <Route path="/members/:id"    element={<MemberProfile />} />
+                <Route path="/requests"       element={<RequestsPage />} />
+                <Route path="/marriages"      element={<MarriagesPage />} />
+                <Route path="/wp-search"      element={<WpSearch />} />
+                <Route path="/privacy"        element={<Privacy />} />
+                <Route path="/bot-knowledge"  element={<BotKnowledge />} />
+                <Route path="*"               element={<Navigate to="/dashboard" replace />} />
               </Routes>
             </Shell>
           </Guard>

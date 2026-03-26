@@ -13,10 +13,30 @@ function rahimahu(gender) {
 }
 
 function genFull(firstName, gender, fatherId, members) {
-  if (!firstName || !gender || !fatherId) return firstName || ''
+  if (!firstName || !fatherId) return firstName || ''
   const fa = members.find(m => m.id === fatherId)
   if (!fa) return firstName
-  return `${firstName} ${gender==='M'?'بن':'بنت'} ${fa.full_name||fa.first_name}`
+  const connector = gender === 'F' ? 'بنت' : 'بن'
+  // إذا الأب عنده full_name جاهز — نستخدمه مباشرة
+  if (fa.full_name && fa.full_name !== fa.first_name) {
+    return `${firstName} ${connector} ${fa.full_name}`
+  }
+  // وإلا نبني من سلسلة father_id
+  const parts = [firstName]
+  const visited = new Set()
+  let current = fatherId
+  let isFirst = true
+  while (current && !visited.has(current)) {
+    visited.add(current)
+    const m = members.find(x => x.id === current)
+    if (!m) break
+    parts.push(isFirst ? connector : 'بن')
+    parts.push(m.first_name || m.full_name)
+    current = m.father_id
+    isFirst = false
+  }
+  const result = parts.join(' ')
+  return result.endsWith('الوابل') ? result : `${result} الوابل`
 }
 
 function Fg({ label, children }) {
@@ -1208,8 +1228,42 @@ export default function MemberProfile() {
             <Fg label="الاسم الأول *"><input className="fi" value={childForm.fn} onChange={e=>setCF('fn',e.target.value)} /></Fg>
             <Fg label="الجنس *"><select className="fs" value={childForm.gender} onChange={e=>setCF('gender',e.target.value)}><option value="">—</option><option value="M">ذكر</option><option value="F">أنثى</option></select></Fg>
           </div>
-          <Fg label="الاسم الكامل (تلقائي)"><input className="fi" value={childForm.full} onChange={e=>setChildForm(p=>({...p,full:e.target.value}))} /></Fg>
-          {member.gender==='M' && <AutoComplete label="الأم" gender="F" value={childForm.motherId} displayValue={childForm.motherName} onChange={(mid,mn)=>setChildForm(p=>({...p,motherId:mid,motherName:mn}))} />}
+          <Fg label="الاسم الكامل (تلقائي)"><input className="fi" value={childForm.full} onChange={e=>setChildForm(p=>({...p,full:e.target.value}))} style={{background:'var(--pul)',fontWeight:500}} readOnly /></Fg>
+
+          {/* ── اختيار الأم ── */}
+          {member.gender==='M' && (() => {
+            const wives = marriages
+              .filter(m => m.husband_id === id)
+              .map(m => members.find(x => x.id === m.wife_id))
+              .filter(Boolean)
+            return (
+              <div style={{marginTop:4}}>
+                <label style={{fontWeight:600,fontSize:13,display:'block',marginBottom:8}}>الأم</label>
+                {wives.map(w => (
+                  <label key={w.id} style={{
+                    display:'flex',alignItems:'center',gap:8,padding:'8px 12px',
+                    border:childForm.motherId===w.id?'2px solid var(--ac)':'1px solid var(--bg3)',
+                    borderRadius:10,marginBottom:6,cursor:'pointer',
+                    background:childForm.motherId===w.id?'var(--pul)':'var(--bg)',
+                    transition:'all .15s'
+                  }}>
+                    <input type="radio" name="child_mother" checked={childForm.motherId===w.id}
+                      onChange={()=>setChildForm(p=>({...p,motherId:w.id,motherName:w.full_name||w.first_name}))}
+                      style={{accentColor:'var(--ac)'}} />
+                    <span style={{fontWeight:childForm.motherId===w.id?600:400}}>{w.first_name||w.full_name}</span>
+                    <span style={{fontSize:10,color:'var(--tx2)',marginRight:'auto'}}>
+                      {w.is_family_member?'من العائلة':w.family_name?`عائلة ${w.family_name}`:'زوجة'}
+                    </span>
+                  </label>
+                ))}
+                {wives.length > 0 && <div style={{borderTop:'1px solid var(--bg2)',margin:'8px 0',paddingTop:8}}>
+                  <span style={{fontSize:11,color:'var(--mu)'}}>أو اختر من قاعدة البيانات:</span>
+                </div>}
+                <AutoComplete label={wives.length?'أم أخرى':'الأم'} gender="F" value={childForm.motherId} displayValue={childForm.motherName} onChange={(mid,mn)=>setChildForm(p=>({...p,motherId:mid,motherName:mn}))} />
+              </div>
+            )
+          })()}
+
           <Fg label="ترتيب الولادة"><input className="fi" type="number" value={childForm.order} onChange={e=>setChildForm(p=>({...p,order:e.target.value}))} min="1" placeholder="1" /></Fg>
         </Modal>
       )}
