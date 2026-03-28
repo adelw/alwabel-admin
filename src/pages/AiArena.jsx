@@ -6,14 +6,14 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 // النماذج والأسعار (مارس 2026)
 // ═══════════════════════════════════════════════════
 const MODELS = [
-  { id: 'claude-opus',   name: 'Claude Opus 4.6',   company: 'Anthropic', color: '#c9a84c', apiGroup: 'anthropic', model: 'claude-opus-4-6-20250514',   priceIn: 5,    priceOut: 25 },
-  { id: 'claude-sonnet', name: 'Claude Sonnet 4.6',  company: 'Anthropic', color: '#e5cb78', apiGroup: 'anthropic', model: 'claude-sonnet-4-6-20250514', priceIn: 3,    priceOut: 15 },
-  { id: 'claude-haiku',  name: 'Claude Haiku 4.5',   company: 'Anthropic', color: '#8B7355', apiGroup: 'anthropic', model: 'claude-haiku-4-5-20251001',  priceIn: 1,    priceOut: 5 },
-  { id: 'gpt-5',         name: 'GPT-5.2',            company: 'OpenAI',    color: '#10a37f', apiGroup: 'openai',    model: 'gpt-4o',                     priceIn: 1.75, priceOut: 14 },
-  { id: 'gpt-4.1',       name: 'GPT-4.1',            company: 'OpenAI',    color: '#1a7f5a', apiGroup: 'openai',    model: 'gpt-4.1',                    priceIn: 2,    priceOut: 8 },
-  { id: 'gemini-pro',    name: 'Gemini 2.5 Pro',     company: 'Google',    color: '#4285f4', apiGroup: 'google',    model: 'gemini-2.5-pro',             priceIn: 1.25, priceOut: 10 },
-  { id: 'gemini-flash',  name: 'Gemini 2.5 Flash',   company: 'Google',    color: '#7baaf7', apiGroup: 'google',    model: 'gemini-2.5-flash-preview-05-20', priceIn: 0.15, priceOut: 0.60 },
-  { id: 'grok-4',        name: 'Grok 4',             company: 'xAI',       color: '#ef4444', apiGroup: 'xai',       model: 'grok-4',                    priceIn: 2,    priceOut: 15 },
+  { id: 'claude-opus',   name: 'Claude Opus 4',     company: 'Anthropic', color: '#c9a84c', apiGroup: 'anthropic', model: 'claude-opus-4-20250514',       priceIn: 5,    priceOut: 25 },
+  { id: 'claude-sonnet', name: 'Claude Sonnet 4',   company: 'Anthropic', color: '#e5cb78', apiGroup: 'anthropic', model: 'claude-sonnet-4-20250514',     priceIn: 3,    priceOut: 15 },
+  { id: 'claude-haiku',  name: 'Claude Haiku 4.5',  company: 'Anthropic', color: '#8B7355', apiGroup: 'anthropic', model: 'claude-haiku-4-5-20251001',    priceIn: 1,    priceOut: 5 },
+  { id: 'gpt-5',         name: 'GPT-4o',            company: 'OpenAI',    color: '#10a37f', apiGroup: 'openai',    model: 'gpt-4o',                       priceIn: 1.25, priceOut: 5 },
+  { id: 'gpt-4.1',       name: 'GPT-4.1',           company: 'OpenAI',    color: '#1a7f5a', apiGroup: 'openai',    model: 'gpt-4.1',                      priceIn: 2,    priceOut: 8 },
+  { id: 'gemini-pro',    name: 'Gemini 2.5 Pro',    company: 'Google',    color: '#4285f4', apiGroup: 'google',    model: 'gemini-2.5-pro',               priceIn: 1.25, priceOut: 10 },
+  { id: 'gemini-flash',  name: 'Gemini 2.5 Flash',  company: 'Google',    color: '#7baaf7', apiGroup: 'google',    model: 'gemini-2.5-flash',             priceIn: 0.15, priceOut: 0.60 },
+  { id: 'grok-4',        name: 'Grok 4',            company: 'xAI',       color: '#ef4444', apiGroup: 'xai',       model: 'grok-4',                       priceIn: 2,    priceOut: 15 },
 ];
 
 const API_GROUPS = {
