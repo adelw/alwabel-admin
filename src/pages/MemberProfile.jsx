@@ -3,6 +3,13 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useStore } from '../store'
 import { sb, now } from '../lib/supabase'
 import { autoAssignTags, autoAssignTagsForMarriage } from '../lib/autoTags'
+import { MemberAuditLog } from './AuditLog'
+import { fieldLabel } from '../lib/auditLog'
+
+// ── Helper: يضيف _audit_source و _audit_actor لأي data object ──
+function withAudit(data, user) {
+  return { ...data, _audit_source: 'dashboard', _audit_actor: user?.full_name || user?.first_name || null }
+}
 import { AutoComplete, Avatar, StatusBadge, RoleBadge, Modal, sLabel, rLabel } from '../components/UI'
 
 const BRANCHES = ['علي','صالح','إبراهيم']
@@ -63,6 +70,43 @@ function InfoItem({ label, value, ltr }) {
 }
 
 /* ── زر التحقق ✓ ── */
+/* ── حقل اسم العائلة للإحصائيات (مع زرين: تصحيح + تلقائي) ── */
+function DisplayFamilyNameField({ form, setF }) {
+  const parts = (form.full_name || '').trim().split(/\s+/)
+  const lastWord = parts.length > 1 ? parts[parts.length - 1] : ''
+  const prevWord = parts.length > 2 ? parts[parts.length - 2] : ''
+  const current = (form.display_family_name || '').trim()
+  const compound = prevWord ? `${prevWord} ${lastWord}` : lastWord
+  const showCorrect = current === lastWord && prevWord && compound !== current
+
+  return (
+    <div style={{ marginTop:8 }}>
+      <Fg label="اسم العائلة للإحصائيات">
+        <div style={{ display:'flex', gap:6, alignItems:'center' }}>
+          <input className="fi" value={form.display_family_name||''} onChange={e=>setF(p=>({...p,display_family_name:e.target.value}))}
+            placeholder="يظهر في إحصائية الأنساب" style={{ flex:1 }} />
+          {current && <button type="button" style={{ background:'none', border:'none', cursor:'pointer', fontSize:16, color:'#999' }}
+            onClick={()=>setF(p=>({...p,display_family_name:''}))}>✕</button>}
+        </div>
+      </Fg>
+      <div style={{ display:'flex', gap:6, marginTop:4, flexWrap:'wrap' }}>
+        {showCorrect && (
+          <button type="button" onClick={()=>setF(p=>({...p,display_family_name:compound}))}
+            style={{ fontSize:11, padding:'3px 10px', borderRadius:14, border:'1.5px solid #e8820c', background:'#fff8f0', color:'#e8820c', cursor:'pointer', fontWeight:700 }}>
+            ✏️ تصحيح → {compound}
+          </button>
+        )}
+        {current !== lastWord && lastWord && (
+          <button type="button" onClick={()=>setF(p=>({...p,display_family_name:lastWord}))}
+            style={{ fontSize:11, padding:'3px 10px', borderRadius:14, border:'1.5px solid #3b82f6', background:'#f0f6ff', color:'#3b82f6', cursor:'pointer', fontWeight:700 }}>
+            🔄 تلقائي → {lastWord}
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function VerifyBtn({ memberId }) {
   const { memberById, updateMember, toast } = useStore()
   const [busy, setBusy] = useState(false)
@@ -259,6 +303,7 @@ function EditModal({ member, onClose, onSave }) {
                   <input className="fi" value={form.family_name||''} onChange={e=>setF('family_name',e.target.value)}
                     placeholder="يُستخرج تلقائياً من الاسم الكامل" />
                 </Fg>
+                <DisplayFamilyNameField form={form} setF={setForm} />
               </div>
             )}
           </div>
@@ -277,11 +322,11 @@ function EditModal({ member, onClose, onSave }) {
 
 /* ── New Member Form ── */
 function NewMemberForm() {
-  const { members, marriages, addMember, toast, showLoad, hideLoad } = useStore()
+  const { members, marriages, addMember, toast, showLoad, hideLoad, user } = useStore()
   const navigate = useNavigate()
-  const [f, setF] = useState({ first_name:'', full_name:'', gender:'', branch:'', status:'approved', role:'user', is_deceased:false, phone:'', email:'', city:'', job:'', birth_date:'', birth_order:'', notes:'', father_id:null, father_name:'', mother_id:null, mother_name:'', is_family_member:true, family_name:'' })
+  const [f, setF] = useState({ first_name:'', full_name:'', gender:'', branch:'', status:'approved', role:'user', is_deceased:false, phone:'', email:'', city:'', job:'', birth_date:'', birth_order:'', notes:'', father_id:null, father_name:'', mother_id:null, mother_name:'', is_family_member:true, family_name:'', display_family_name:'' })
   const extractFamilyName = (fullName) => { if (!fullName) return ''; const parts = fullName.trim().split(/\s+/); return parts.length > 1 ? parts[parts.length - 1] : '' }
-  const set = (k,v) => setF(p=>{ const n={...p,[k]:v}; if((k==='first_name'||k==='gender'||k==='father_id')&&n.father_id) n.full_name=genFull(n.first_name,n.gender,n.father_id,members); if((k==='full_name'||k==='first_name')&&!n.is_family_member){ const parts=(n.full_name||'').trim().split(/\s+/); n.family_name=parts.length>1?parts[parts.length-1]:'' }; return n })
+  const set = (k,v) => setF(p=>{ const n={...p,[k]:v}; if((k==='first_name'||k==='gender'||k==='father_id')&&n.father_id) n.full_name=genFull(n.first_name,n.gender,n.father_id,members); if((k==='full_name'||k==='first_name')&&!n.is_family_member){ const parts=(n.full_name||'').trim().split(/\s+/); n.family_name=parts.length>1?parts[parts.length-1]:''; if(!n.display_family_name) n.display_family_name=n.family_name }; return n })
 
   async function save(e) {
     e.preventDefault()
@@ -289,8 +334,8 @@ function NewMemberForm() {
     showLoad('جارٍ الإضافة...')
     const id = crypto.randomUUID()
     const branch = f.branch||(f.father_id?members.find(m=>m.id===f.father_id)?.branch:null)||null
-    const data = { id, first_name:f.first_name, full_name:f.full_name||f.first_name, gender:f.gender||null, branch, status:f.status, role:f.role, is_deceased:f.is_deceased, phone:f.phone||null, email:f.email||null, city:f.city||null, job:f.job||null, birth_date:f.birth_date||null, birth_order:f.birth_order?parseInt(f.birth_order):null, notes:f.notes||null, father_id:f.father_id||null, mother_id:f.mother_id||null, is_family_member:f.is_family_member, family_name:f.is_family_member ? null : (f.family_name || extractFamilyName(f.full_name) || null), created_at:now(), updated_at:now() }
-    const { error } = await sb.from('members').insert(data)
+    const data = { id, first_name:f.first_name, full_name:f.full_name||f.first_name, gender:f.gender||null, branch, status:f.status, role:f.role, is_deceased:f.is_deceased, phone:f.phone||null, email:f.email||null, city:f.city||null, job:f.job||null, birth_date:f.birth_date||null, birth_order:f.birth_order?parseInt(f.birth_order):null, notes:f.notes||null, father_id:f.father_id||null, mother_id:f.mother_id||null, is_family_member:f.is_family_member, family_name:f.is_family_member ? null : (f.family_name || extractFamilyName(f.full_name) || null), display_family_name:f.is_family_member ? null : (f.display_family_name || null), created_at:now(), updated_at:now() }
+    const { error } = await sb.from('members').insert(withAudit(data, user))
     hideLoad()
     if (error) return toast('خطأ: '+error.message,'er')
     addMember(data)
@@ -374,6 +419,7 @@ function NewMemberForm() {
                   <Fg label="اسم العائلة (من الاسم الكامل تلقائياً)">
                     <input className="fi" value={f.family_name} onChange={e=>set('family_name',e.target.value)} placeholder="يُستخرج تلقائياً من الاسم الكامل" />
                   </Fg>
+                  <DisplayFamilyNameField form={f} setF={setF} />
                 </div>
               )}
             </div>
@@ -393,7 +439,7 @@ function NewMemberForm() {
 
 /* ── Quick Edit Modal (نفس الصفحة) ── */
 function QuickEditModal({ memberId, onClose, onSaved }) {
-  const { memberById, updateMember, toast, showLoad, hideLoad } = useStore()
+  const { memberById, updateMember, toast, showLoad, hideLoad, user } = useStore()
   const m = memberById(memberId)
   const [form, setForm] = useState({})
   const setF = (k,v) => setForm(p=>({...p,[k]:v}))
@@ -404,6 +450,10 @@ function QuickEditModal({ memberId, onClose, onSaved }) {
         const parts = fm.full_name.trim().split(/\s+/)
         if (parts.length > 1) fm.family_name = parts[parts.length - 1]
       }
+      if (fm.is_family_member === false && !fm.display_family_name && fm.full_name) {
+        const parts = fm.full_name.trim().split(/\s+/)
+        if (parts.length > 1) fm.display_family_name = parts[parts.length - 1]
+      }
       setForm(fm)
     }
   }, [memberId])
@@ -411,8 +461,8 @@ function QuickEditModal({ memberId, onClose, onSaved }) {
 
   async function save() {
     showLoad('جارٍ الحفظ...')
-    const data = { first_name:form.first_name, full_name:form.full_name, gender:form.gender||null, branch:form.branch||null, status:form.status, role:form.role, is_deceased:form.is_deceased, phone:form.phone||null, city:form.city||null, job:form.job||null, birth_order:form.birth_order?parseInt(form.birth_order):null, notes:form.notes||null, is_family_member:!!form.is_family_member, family_name:form.is_family_member?null:(form.family_name||null), updated_at:now() }
-    const { error } = await sb.from('members').update(data).eq('id', memberId)
+    const data = { first_name:form.first_name, full_name:form.full_name, gender:form.gender||null, branch:form.branch||null, status:form.status, role:form.role, is_deceased:form.is_deceased, phone:form.phone||null, city:form.city||null, job:form.job||null, birth_order:form.birth_order?parseInt(form.birth_order):null, notes:form.notes||null, is_family_member:!!form.is_family_member, family_name:form.is_family_member?null:(form.family_name||null), display_family_name:form.is_family_member?null:(form.display_family_name||null), updated_at:now() }
+    const { error } = await sb.from('members').update(withAudit(data, user)).eq('id', memberId)
     hideLoad()
     if (error) return toast('خطأ: '+error.message,'er')
     updateMember(memberId, data)
@@ -525,7 +575,7 @@ function smartName(target, pool) {
 export default function MemberProfile() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { members, marriages, memberById, updateMember, removeMember, addMember, addMarriage, removeMarriage, updateMarriage, showConfirm, toast, showLoad, hideLoad, loaded } = useStore()
+  const { members, marriages, memberById, updateMember, removeMember, addMember, addMarriage, removeMarriage, updateMarriage, showConfirm, toast, showLoad, hideLoad, loaded, user } = useStore()
 
   // ── كل الـ hooks لازم تكون هنا قبل أي return مشروط ──
   const member = id !== 'new' ? memberById(id) : null
@@ -588,7 +638,7 @@ export default function MemberProfile() {
     showConfirm('✂️','فصل الأم',`فصل الأم عن ${selChildren.size} ابن؟`, async()=>{
       showLoad('جارٍ الفصل...')
       const ids=[...selChildren]
-      const{error}=await sb.from('members').update({mother_id:null,updated_at:now()}).in('id',ids)
+      const{error}=await sb.from('members').update(withAudit({mother_id:null,updated_at:now()}, user)).in('id',ids)
       hideLoad(); if(error) return toast('خطأ: '+error.message,'er')
       ids.forEach(id=>updateMember(id,{mother_id:null}))
       setSelChildren(new Set()); toast('✅ تم الفصل','ok')
@@ -600,7 +650,7 @@ export default function MemberProfile() {
     showConfirm('👩','إضافة أم',`ربط "${bulkMomName}" كأم لـ ${selChildren.size} ابن؟`, async()=>{
       showLoad('جارٍ الربط...')
       const ids=[...selChildren]
-      const{error}=await sb.from('members').update({mother_id:bulkMomId,updated_at:now()}).in('id',ids)
+      const{error}=await sb.from('members').update(withAudit({mother_id:bulkMomId,updated_at:now()}, user)).in('id',ids)
       hideLoad(); if(error) return toast('خطأ: '+error.message,'er')
       ids.forEach(id=>updateMember(id,{mother_id:bulkMomId}))
       setSelChildren(new Set()); setBulkMomId(null); setBulkMomName('')
@@ -610,8 +660,8 @@ export default function MemberProfile() {
 
   async function save(form) {
     showLoad('جارٍ الحفظ...')
-    const data = { first_name:form.first_name, full_name:form.full_name, gender:form.gender||null, branch:form.branch||null, status:form.status, role:form.role, is_deceased:form.is_deceased, phone:form.phone||null, email:form.email||null, city:form.city||null, job:form.job||null, birth_date:form.birth_date||null, birth_order:form.birth_order?parseInt(form.birth_order):null, notes:form.notes||null, father_id:form.father_id||null, mother_id:form.mother_id||null, is_family_member:!!form.is_family_member, family_name:form.is_family_member?null:(form.family_name||null), updated_at:now() }
-    const { error } = await sb.from('members').update(data).eq('id',id)
+    const data = { first_name:form.first_name, full_name:form.full_name, gender:form.gender||null, branch:form.branch||null, status:form.status, role:form.role, is_deceased:form.is_deceased, phone:form.phone||null, email:form.email||null, city:form.city||null, job:form.job||null, birth_date:form.birth_date||null, birth_order:form.birth_order?parseInt(form.birth_order):null, notes:form.notes||null, father_id:form.father_id||null, mother_id:form.mother_id||null, is_family_member:!!form.is_family_member, family_name:form.is_family_member?null:(form.family_name||null), display_family_name:form.is_family_member?null:(form.display_family_name||null), updated_at:now() }
+    const { error } = await sb.from('members').update(withAudit(data, user)).eq('id',id)
     hideLoad()
     if (error) return toast('خطأ: '+error.message,'er')
     updateMember(id,data); toast('✅ تم الحفظ','ok'); setEdit(false)
@@ -629,11 +679,21 @@ export default function MemberProfile() {
     })
   }
 
+  async function toggleHide() {
+    const newVal = !member.is_hidden
+    showLoad('')
+    const { error } = await sb.from('members').update(withAudit({ is_hidden: newVal, updated_at: now() }, user)).eq('id', id)
+    hideLoad()
+    if (error) return toast('خطأ: ' + error.message, 'er')
+    updateMember(id, { is_hidden: newVal })
+    toast(newVal ? '🙈 تم إخفاء العضو عن الجميع' : '👁️ تم إظهار العضو', 'ok')
+  }
+
   async function unlink(type) {
     const field = type==='father'?'father_id':'mother_id'
     showConfirm('🔗','فصل الرابط',`فصل "${nm(member[field])}" من ملف "${member.first_name||member.full_name}"؟`,async()=>{
       showLoad('')
-      const { error } = await sb.from('members').update({[field]:null,updated_at:now()}).eq('id',id)
+      const { error } = await sb.from('members').update(withAudit({[field]:null,updated_at:now()}, user)).eq('id',id)
       hideLoad()
       if (error) return toast('خطأ: '+error.message,'er')
       updateMember(id,{[field]:null}); toast('✅ تم الفصل','ok')
@@ -641,13 +701,13 @@ export default function MemberProfile() {
   }
 
   async function reorderChildren(newList) {
-    await Promise.all(newList.map((c,i) => sb.from('members').update({ birth_order:i+1, updated_at:now() }).eq('id',c.id)))
+    await Promise.all(newList.map((c,i) => sb.from('members').update(withAudit({ birth_order:i+1, updated_at:now() }, user)).eq('id',c.id)))
     newList.forEach((c,i) => updateMember(c.id,{ birth_order:i+1 }))
     toast('✅ تم حفظ الترتيب','ok')
   }
 
   async function reorderMarriages(newList) {
-    await Promise.all(newList.map((m,i) => sb.from('marriages').update({ wife_order:i+1 }).eq('id',m.id)))
+    await Promise.all(newList.map((m,i) => sb.from('marriages').update(withAudit({ wife_order:i+1 }, user)).eq('id',m.id)))
     newList.forEach((m,i) => updateMarriage(m.id,{ wife_order:i+1 }))
     toast('✅ تم حفظ الترتيب','ok')
   }
@@ -657,7 +717,7 @@ export default function MemberProfile() {
     const isH = member.gender==='M'
     showLoad('')
     const newMar = { id:crypto.randomUUID(), husband_id:isH?id:marDlg.otherId, wife_id:isH?marDlg.otherId:id, wife_order:parseInt(marDlg.order)||1, is_divorced:marDlg.divorced, is_hidden:false }
-    const { error } = await sb.from('marriages').insert(newMar)
+    const { error } = await sb.from('marriages').insert(withAudit(newMar, user))
     hideLoad()
     if (error) return toast('خطأ: '+error.message,'er')
     addMarriage(newMar); setMarDlg(null); toast('✅ تمت إضافة الزيجة','ok')
@@ -669,7 +729,7 @@ export default function MemberProfile() {
     showLoad('')
     const updates = { is_divorced:!cur }
     if (!cur) updates.is_hidden = true  // عند تسجيل الطلاق تُخفى تلقائياً
-    const { error } = await sb.from('marriages').update(updates).eq('id',marId)
+    const { error } = await sb.from('marriages').update(withAudit(updates, user)).eq('id',marId)
     hideLoad()
     if (error) return toast('خطأ: '+error.message,'er')
     updateMarriage(marId, updates)
@@ -678,7 +738,7 @@ export default function MemberProfile() {
 
   async function toggleHidden(marId, cur) {
     showLoad('')
-    const { error } = await sb.from('marriages').update({ is_hidden:!cur }).eq('id',marId)
+    const { error } = await sb.from('marriages').update(withAudit({ is_hidden:!cur }, user)).eq('id',marId)
     hideLoad()
     if (error) return toast('خطأ: '+error.message,'er')
     updateMarriage(marId,{ is_hidden:!cur })
@@ -708,7 +768,7 @@ export default function MemberProfile() {
     showLoad('جارٍ الإضافة...')
     const cid = crypto.randomUUID()
     const data = { id:cid, first_name:childForm.fn, full_name:childForm.full||childForm.fn, gender:childForm.gender, father_id:fatherId, mother_id:motherId, branch:member.branch||null, birth_order:childForm.order?parseInt(childForm.order):null, status:'approved', role:'user', is_deceased:false, is_family_member:true, created_at:now(), updated_at:now() }
-    const { error } = await sb.from('members').insert(data)
+    const { error } = await sb.from('members').insert(withAudit(data, user))
     hideLoad()
     if (error) return toast('خطأ: '+error.message,'er')
     addMember(data); setChildDlg(null); setChildForm({ fn:'', gender:'', full:'', motherId:null, motherName:'', order:'' }); toast('✅ تمت الإضافة','ok')
@@ -727,6 +787,17 @@ export default function MemberProfile() {
       </button>
 
       <div className="profile-grid">
+        {/* ── تنبيه العضو المخفي ── */}
+        {member.is_hidden && (
+          <div style={{ gridColumn:'1/-1', background:'#fef2f2', border:'1.5px solid #fca5a5', borderRadius:12, padding:'12px 16px', display:'flex', alignItems:'center', gap:10, marginBottom:4 }}>
+            <span style={{ fontSize:20 }}>🙈</span>
+            <div style={{ flex:1 }}>
+              <div style={{ fontSize:13, fontWeight:700, color:'#dc2626' }}>هذا العضو مخفي</div>
+              <div style={{ fontSize:11, color:'#9a3412' }}>لا يظهر في البحث أو الإحصائيات أو الشجرة أو التطبيق</div>
+            </div>
+            <button className="btn btn-ok btn-sm" onClick={toggleHide}>👁️ إظهار</button>
+          </div>
+        )}
         {/* ── اليسار ── */}
         <div>
           <div className="card">
@@ -739,6 +810,7 @@ export default function MemberProfile() {
                 <StatusBadge status={member.status}/>
                 {member.is_deceased && <span className="badge b-deceased">{rahimahu(member.gender)}</span>}
                 <RoleBadge role={member.role}/>
+                {member.is_hidden && <span style={{ fontSize:11, padding:'2px 8px', borderRadius:20, background:'#fee2e2', color:'#dc2626', fontWeight:700, border:'1px solid #fca5a5' }}>🙈 مخفي</span>}
                 {member.is_family_member === false
                   ? <span style={{ fontSize:11, padding:'2px 8px', borderRadius:20, background:'#fef3c7', color:'#92400e', fontWeight:700, border:'1px solid #fcd34d' }}>
                       🔗 {member.family_name ? `عائلة ${member.family_name}` : 'خارج العائلة'}
@@ -775,6 +847,9 @@ export default function MemberProfile() {
                     <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M9 6V4h6v2"/>
                   </svg>
                   حذف
+                </button>
+                <button className={`btn ${member.is_hidden ? 'btn-ok' : 'btn-or'}`} onClick={toggleHide} title={member.is_hidden ? 'إظهار العضو للجميع' : 'إخفاء العضو عن الجميع'}>
+                  {member.is_hidden ? '👁️ إظهار' : '🙈 إخفاء'}
                 </button>
               </div>
             </div>
@@ -1202,6 +1277,11 @@ export default function MemberProfile() {
               {siblings.length > 20 && <div style={{ fontSize:12, color:'var(--mu)', padding:'8px 0', textAlign:'center', fontWeight:600 }}>و {siblings.length-20} آخرين...</div>}
             </RelCard>
           )}
+
+          {/* ── سجل التغييرات ── */}
+          <RelCard title="سجل التغييرات" icon="📋" count={0}>
+            <MemberAuditLog memberId={id} />
+          </RelCard>
 
         </div>
       </div>

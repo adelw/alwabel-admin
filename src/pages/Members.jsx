@@ -12,6 +12,7 @@ export default function Members() {
   const [genderF, setGenderF] = useState(null)
   const [toggling, setToggling] = useState({})
   const [verifyF,  setVerifyF]  = useState(null)
+  const [hiddenF,  setHiddenF]  = useState(null)   // null=عرض المرئيين فقط, true=المخفيين فقط, 'all'=الكل
   const [limit,    setLimit]    = useState(200)
 
   // Load tags for display
@@ -47,8 +48,12 @@ export default function Members() {
     }
     if (verifyF === true)  l = l.filter(m =>  m.is_verified)
     if (verifyF === false) l = l.filter(m => !m.is_verified)
+    // فلتر الإخفاء: افتراضياً يعرض المرئيين فقط
+    if (hiddenF === null)  l = l.filter(m => !m.is_hidden)
+    if (hiddenF === true)  l = l.filter(m =>  m.is_hidden)
+    // hiddenF === 'all' → لا فلترة
     return l
-  }, [members, q, statusF, genderF, verifyF])
+  }, [members, q, statusF, genderF, verifyF, hiddenF])
 
   const duplicateNames = useMemo(() => {
     const counts = {}
@@ -157,6 +162,14 @@ export default function Members() {
               {l}
             </span>
           ))}
+          <span style={{ display:'inline-block', width:1, height:20, background:'var(--br)', margin:'0 3px', alignSelf:'center' }} />
+          {[['المرئيين',null],['🙈 المخفيين',true],['الكل','all']].map(([l,v]) => (
+            <span key={l} className={`chip${hiddenF===v?' on':''}`}
+              style={v===true&&hiddenF===true?{background:'#fef2f2',color:'#dc2626',borderColor:'#fca5a5'}:{}}
+              onClick={() => setHiddenF(hiddenF===v?null:v)}>
+              {l}
+            </span>
+          ))}
         </div>
       </div>
 
@@ -217,7 +230,7 @@ export default function Members() {
               key={m.id}
               className="m-row"
               onClick={() => navigate('/members/' + m.id)}
-              style={{ borderRight: `3px solid ${isVer ? '#22c55e' : '#e2e8f0'}` }}
+              style={{ borderRight: `3px solid ${isVer ? '#22c55e' : '#e2e8f0'}`, opacity: m.is_hidden ? 0.5 : 1 }}
             >
               <Avatar m={m} />
               <div className="m-info">
@@ -226,6 +239,11 @@ export default function Members() {
                   {m.wp_id && <small style={{ color:'var(--mu)', fontSize:10, fontWeight:500, marginRight:6 }}>#{m.wp_id}</small>}
                   {m.is_deceased && (
                     <small style={{ color:'var(--mu)', fontSize:10, fontWeight:500, marginRight:6 }}>رحمه الله</small>
+                  )}
+                  {m.is_hidden && (
+                    <small style={{ color:'#dc2626', fontSize:10, fontWeight:700, marginRight:6, background:'#fef2f2', padding:'1px 6px', borderRadius:4, border:'1px solid #fca5a5' }}>
+                      🙈 مخفي
+                    </small>
                   )}
                   {isDup && (
                     <small style={{ color:'#f59e0b', fontSize:10, fontWeight:600, marginRight:6, background:'rgba(245,158,11,0.1)', padding:'1px 6px', borderRadius:4 }}>

@@ -30,7 +30,7 @@ export async function loadAllMembers() {
   while (true) {
     const { data, error } = await sb
       .from('members')
-      .select('id,wp_id,ref_id,first_name,full_name,gender,phone,email,city,job,branch,status,role,is_deceased,birth_date,birth_order,father_id,mother_id,photo_url,notes,created_at,auth_id,is_verified,is_family_member,family_name')
+      .select('id,wp_id,ref_id,first_name,full_name,gender,phone,email,city,job,branch,status,role,is_deceased,birth_date,birth_order,father_id,mother_id,photo_url,notes,created_at,auth_id,is_verified,is_family_member,family_name,display_family_name')
       .order('full_name')
       .range(off, off + 999)
     if (error) throw error

@@ -28,19 +28,6 @@ const NAV = [
     ),
   },
   {
-    to: '/requests',
-    label: 'طلبات التسجيل',
-    badge: true,
-    icon: (
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-        <polyline points="14 2 14 8 20 8"/>
-        <line x1="16" y1="13" x2="8" y2="13"/>
-        <line x1="16" y1="17" x2="8" y2="17"/>
-      </svg>
-    ),
-  },
-  {
     to: '/marriages',
     label: 'الزيجات',
     icon: (
@@ -68,29 +55,16 @@ const NAV = [
       </svg>
     ),
   },
-  {
-    to: '/bot-knowledge',
-    label: 'ذاكرة البوت',
-    icon: (
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 2a4 4 0 0 1 4 4c0 1.95-1.4 3.57-3.25 3.92L12 22"/>
-        <path d="M12 2a4 4 0 0 0-4 4c0 1.95 1.4 3.57 3.25 3.92"/>
-        <path d="M8 10h8"/><path d="M9 14h6"/><path d="M10 18h4"/>
-      </svg>
-    ),
-  },
 ]
 
 export default function Sidebar() {
-  const { user, members, setUser } = useStore()
+  const { user } = useStore()
   const navigate = useNavigate()
-  const pending  = members.filter(m => m.status === 'pending').length
   const initials = (user?.first_name || user?.full_name || '؟').charAt(0)
 
   async function logout() {
     if (!confirm('تسجيل الخروج من لوحة التحكم؟')) return
     await sb.auth.signOut()
-    setUser(null)
     navigate('/login', { replace: true })
   }
 
@@ -118,7 +92,7 @@ export default function Sidebar() {
       {/* Nav */}
       <nav className="sb-nav">
         <div className="nav-section">القائمة الرئيسية</div>
-        {NAV.map(({ to, label, icon, badge }) => (
+        {NAV.map(({ to, label, icon }) => (
           <NavLink
             key={to}
             to={to}
@@ -126,9 +100,6 @@ export default function Sidebar() {
           >
             <div className="nav-ico">{icon}</div>
             <span>{label}</span>
-            {badge && pending > 0 && (
-              <span className="nav-badge">{pending}</span>
-            )}
           </NavLink>
         ))}
       </nav>

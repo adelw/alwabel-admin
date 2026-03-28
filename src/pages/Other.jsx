@@ -1,65 +1,9 @@
-// ── Requests Page ────────────────────────────────────
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { useStore } from '../store'
-import { sb, now } from '../lib/supabase'
-import { Avatar, AutoComplete, Modal } from '../components/UI'
-
-export function RequestsPage() {
-  const { members, updateMember, toast, showLoad, hideLoad } = useStore()
-  const navigate = useNavigate()
-  const pending = members.filter(m => m.status === 'pending')
-
-  async function approve(m) {
-    showLoad('')
-    const { error } = await sb.from('members').update({ status:'approved', updated_at:now() }).eq('id', m.id)
-    hideLoad()
-    if (error) return toast('خطأ: '+error.message,'er')
-    updateMember(m.id, { status:'approved' })
-    toast(`✅ تم قبول ${m.first_name||m.full_name}`, 'ok')
-  }
-
-  async function reject(m) {
-    const reason = prompt(`سبب رفض ${m.first_name||m.full_name} (اختياري):`)
-    if (reason === null) return
-    showLoad('')
-    const { error } = await sb.from('members').update({ status:'rejected', notes:reason||null, updated_at:now() }).eq('id', m.id)
-    hideLoad()
-    if (error) return toast('خطأ: '+error.message,'er')
-    updateMember(m.id, { status:'rejected', notes:reason||null })
-    toast(`تم رفض ${m.first_name||m.full_name}`, 'inf')
-  }
-
-  return (
-    <div>
-      <div className="sh">
-        <span className="sh-t">طلبات التسجيل المعلقة</span>
-        <span className="sh-c">{pending.length} طلب</span>
-      </div>
-      {!pending.length && <div className="empty"><div className="empty-ico">✅</div><div>لا توجد طلبات معلقة</div></div>}
-      <div className="m-list">
-        {pending.map(m => (
-          <div key={m.id} className="card" style={{ marginBottom:10 }}>
-            <div style={{ display:'flex', alignItems:'center', gap:12, cursor:'pointer', marginBottom:12 }} onClick={()=>navigate('/members/'+m.id)}>
-              <Avatar m={m} size={46} />
-              <div style={{ flex:1 }}>
-                <div style={{ fontSize:15, fontWeight:800 }}>{m.full_name||m.first_name}</div>
-                <div style={{ fontSize:12, color:'var(--mu)' }}>{[m.phone,m.city].filter(Boolean).join(' · ')}</div>
-              </div>
-            </div>
-            <div style={{ display:'flex', gap:8 }}>
-              <button className="btn btn-ok" onClick={()=>approve(m)}>✅ قبول</button>
-              <button className="btn btn-er" onClick={()=>reject(m)}>❌ رفض</button>
-              <button className="btn btn-bl" onClick={()=>navigate('/members/'+m.id)}>👤 الملف</button>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
 // ── Marriages Page ───────────────────────────────────
+import { useState } from 'react'
+import { useStore } from '../store'
+import { sb } from '../lib/supabase'
+import { AutoComplete, Modal } from '../components/UI'
+
 export function MarriagesPage() {
   const { members, marriages, addMarriage, removeMarriage, showConfirm, toast, showLoad, hideLoad } = useStore()
   const nm = id => { const m = members.find(x=>x.id===id); return m?.full_name||m?.first_name||'—' }
@@ -116,23 +60,50 @@ export function MarriagesPage() {
               <div style={{ fontSize:12, color:'var(--mu)', marginTop:2 }}>💍 {nm(m.wife_id)}</div>
             </div>
             <div style={{ display:'flex', gap:7, alignItems:'center' }}>
-              <span className={`badge ${m.is_divorced?'b-divorced':'b-approved'}`}>{m.is_divorced?'مطلق':'متزوج'}</span>
-              <button className="btn btn-er btn-sm" onClick={()=>del(m.id)}>🗑️</button>
+              <span className={`badge ${m.is_divorced?'b-divorced':'b-approved'}`}>{m.is_divorced?'مطلقة':'قائمة'}</span>
+              <span style={{ fontSize:11, color:'var(--mu)' }}>ترتيب: {m.wife_order||1}</span>
+              <button className="btn btn-er btn-xs" onClick={()=>del(m.id)}>🗑️</button>
             </div>
           </div>
         ))}
       </div>
 
       {dlg && (
-        <Modal title="💍 إضافة زيجة" onClose={()=>setDlg(null)} sm
-          footer={<><button className="btn btn-gh" onClick={()=>setDlg(null)}>إلغاء</button><button className="btn btn-ok" style={{fontWeight:800}} onClick={saveMar}>💍 حفظ</button></>}>
-          <AutoComplete label="الزوج" gender="M" value={dlg.hId} displayValue={dlg.hName}
-            onChange={(id,name)=>setDlg(p=>({...p,hId:id,hName:name}))} />
-          <AutoComplete label="الزوجة" gender="F" value={dlg.wId} displayValue={dlg.wName}
-            onChange={(id,name)=>setDlg(p=>({...p,wId:id,wName:name}))} />
-          <div className="fr">
-            <div className="fg"><label>ترتيب الزوجة</label><input className="fi" type="number" value={dlg.order} onChange={e=>setDlg(p=>({...p,order:e.target.value}))} min="1" max="4" /></div>
-            <div className="fg"><label>الحالة</label><select className="fs" value={String(dlg.divorced)} onChange={e=>setDlg(p=>({...p,divorced:e.target.value==='true'}))}><option value="false">متزوج</option><option value="true">مطلق</option></select></div>
+        <Modal onClose={()=>setDlg(null)} title="إضافة زيجة">
+          <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
+            <div>
+              <label style={{ fontSize:12, fontWeight:600, marginBottom:4, display:'block' }}>الزوج</label>
+              <AutoComplete
+                members={members.filter(m=>m.gender==='M')}
+                value={dlg.hName}
+                onSelect={m=>setDlg(p=>({...p,hId:m.id,hName:m.full_name||m.first_name}))}
+                onChange={v=>setDlg(p=>({...p,hName:v,hId:null}))}
+                placeholder="ابحث عن الزوج..."
+              />
+            </div>
+            <div>
+              <label style={{ fontSize:12, fontWeight:600, marginBottom:4, display:'block' }}>الزوجة</label>
+              <AutoComplete
+                members={members.filter(m=>m.gender==='F')}
+                value={dlg.wName}
+                onSelect={m=>setDlg(p=>({...p,wId:m.id,wName:m.full_name||m.first_name}))}
+                onChange={v=>setDlg(p=>({...p,wName:v,wId:null}))}
+                placeholder="ابحث عن الزوجة..."
+              />
+            </div>
+            <div style={{ display:'flex', gap:12 }}>
+              <div style={{ flex:1 }}>
+                <label style={{ fontSize:12, fontWeight:600, marginBottom:4, display:'block' }}>ترتيب الزوجة</label>
+                <input type="number" min="1" max="4" value={dlg.order} onChange={e=>setDlg(p=>({...p,order:e.target.value}))} style={{ width:'100%', padding:'8px 12px', borderRadius:10, border:'1.5px solid var(--br)', fontSize:13, fontFamily:'inherit' }} />
+              </div>
+              <div style={{ flex:1, display:'flex', alignItems:'end' }}>
+                <label style={{ display:'flex', alignItems:'center', gap:8, fontSize:12, fontWeight:600, cursor:'pointer' }}>
+                  <input type="checkbox" checked={dlg.divorced} onChange={e=>setDlg(p=>({...p,divorced:e.target.checked}))} />
+                  مطلقة
+                </label>
+              </div>
+            </div>
+            <button className="btn btn-ok" style={{ width:'100%', justifyContent:'center', marginTop:6 }} onClick={saveMar}>💾 حفظ الزيجة</button>
           </div>
         </Modal>
       )}

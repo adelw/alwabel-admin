@@ -3,5 +3,9 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
-  base: '/admin/dist/',
+  base: '/',
+  build: {
+    modulePreload: false,
+    target: 'es2015',
+  },
 })
