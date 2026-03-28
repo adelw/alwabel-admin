@@ -12,6 +12,7 @@ import { MarriagesPage } from './pages/Other'
 import WpSearch from './pages/WpSearch'
 import Privacy from './pages/Privacy'
 import AiArena from './pages/AiArena'
+import AuditLog from './pages/AuditLog'
 
 function Shell({ children }) {
   const { loadAll, showLoad, hideLoad, toast } = useStore()
@@ -24,7 +25,7 @@ function Shell({ children }) {
     finally { hideLoad() }
   }
 
-  const titles = { '/dashboard':'نظرة عامة', '/members':'الأعضاء', '/marriages':'الزيجات', '/wp-search':'بحث WP', '/privacy':'الخصوصية', '/ai-arena':'ساحة النماذج' }
+  const titles = { '/dashboard':'نظرة عامة', '/members':'الأعضاء', '/marriages':'الزيجات', '/wp-search':'بحث WP', '/privacy':'الخصوصية', '/ai-arena':'ساحة النماذج', '/audit-log':'سجل التعديلات' }
   const loc = useLocation()
   const title = loc.pathname.startsWith('/members/') && loc.pathname !== '/members/new'
     ? 'ملف العضو'
@@ -104,6 +105,7 @@ export default function App() {
                 <Route path="/wp-search"    element={<WpSearch />} />
                 <Route path="/privacy"      element={<Privacy />} />
                 <Route path="/ai-arena"     element={<AiArena />} />
+                <Route path="/audit-log"    element={<AuditLog />} />
                 <Route path="*"             element={<Navigate to="/dashboard" replace />} />
               </Routes>
             </Shell>
